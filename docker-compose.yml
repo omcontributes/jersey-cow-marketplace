@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cow-marketplace-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: cow_marketplace_db
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpassword}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: cow-marketplace-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/cow_marketplace_db
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-rootpassword}
+      JWT_SECRET: ${JWT_SECRET:-8f42a73054b1749f8f58848be5e6502c8a4fb2e8b6b6a63e1c1b9f2a8d4c6e0f1a3b5c7d9e1f3a5b7c9d1e3f5a7b9c}
+      FILE_STORAGE_PATH: /app/uploads
+    volumes:
+      - uploaded-images:/app/uploads
+
+volumes:
+  mysql-data:
+  uploaded-images:
