@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Jersey Cow Marketplace</title>
+    <style>
+        :root{
+          --moss:#3f5b3f; --moss-dark:#2b402b; --tan:#e8dfc8; --paper:#faf7ef;
+          --ink:#26221a; --clay:#a8622f; --line:#d8cfb2;
+        }
+        *{box-sizing:border-box}
+        body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+        header{background:var(--moss);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+        header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.2px}
+        header h1 span{color:var(--tan)}
+        nav button{background:none;border:1px solid rgba(255,255,255,.5);color:#fff;padding:7px 14px;border-radius:4px;cursor:pointer;margin-left:8px;font-size:14px}
+        nav button.primary{background:var(--clay);border-color:var(--clay)}
+        main{max-width:960px;margin:0 auto;padding:24px 16px 60px}
+        .hidden{display:none!important}
+        h2{margin-top:0;color:var(--moss-dark)}
+        .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+        .bar input,.bar select{padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-size:14px;background:#fff}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+        .card{border:1px solid var(--line);border-radius:6px;background:#fff;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+        .card img{width:100%;height:140px;object-fit:cover;background:var(--tan)}
+        .card .body{padding:10px 12px}
+        .card h3{margin:0 0 4px;font-size:16px}
+        .card .price{color:var(--clay);font-weight:700}
+        .card .meta{font-size:13px;color:#666}
+        .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:3px;background:var(--tan);color:var(--moss-dark);margin-left:6px}
+        form{max-width:420px;display:flex;flex-direction:column;gap:10px}
+        form.wide{max-width:640px}
+        .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        label{font-size:13px;color:#555;margin-bottom:-6px}
+        input,select,textarea{padding:9px 10px;border:1px solid var(--line);border-radius:4px;font-size:14px;font-family:inherit;background:#fff}
+        button{cursor:pointer}
+        .btn{background:var(--moss);color:#fff;border:none;padding:10px 16px;border-radius:4px;font-size:14px;font-weight:600}
+        .btn.clay{background:var(--clay)}
+        .btn.outline{background:none;border:1px solid var(--moss);color:var(--moss)}
+        .msg{padding:9px 12px;border-radius:4px;font-size:14px;margin-bottom:10px}
+        .msg.err{background:#fbe4e0;color:#8a2c14}
+        .msg.ok{background:#e2ecdc;color:#33502a}
+        .detail img{width:100%;max-height:320px;object-fit:cover;border-radius:6px;margin-bottom:12px}
+        .thumbs{display:flex;gap:8px;margin-bottom:14px}
+        .thumbs img{width:64px;height:64px;object-fit:cover;border-radius:4px;cursor:pointer;border:2px solid transparent}
+        .thumbs img.on{border-color:var(--clay)}
+        .contact{display:flex;gap:10px;margin-top:14px}
+        .contact a{padding:9px 16px;border-radius:4px;text-decoration:none;font-size:14px;font-weight:600}
+        .contact .call{background:var(--moss);color:#fff}
+        .contact .wa{background:#3fa34d;color:#fff}
+        table{width:100%;border-collapse:collapse;font-size:14px}
+        th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+        .pill{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--tan)}
+        .pill.sold{background:#e2c9c9;color:#7a2b2b}
+        .small{font-size:12px;color:#777}
+        .empty{color:#888;padding:30px 0;text-align:center}
+    </style>
+</head>
+<body>
+<header>
+    <h1>Jersey<span>Cow</span> Marketplace</h1>
+    <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+
+<script>
+    const API = "";
+    let state = { view:"browse", token: localStorage.getItem("jcm_token"), role: localStorage.getItem("jcm_role"), name: localStorage.getItem("jcm_name"), cows: [], selectedCow: null, selectedImg:0, myCows:[] };
+
+    function saveAuth(token, role, name){
+      state.token=token; state.role=role; state.name=name;
+      localStorage.setItem("jcm_token",token); localStorage.setItem("jcm_role",role); localStorage.setItem("jcm_name",name);
+    }
+    function logout(){ state.token=null; state.role=null; state.name=null; localStorage.clear(); go("browse"); }
+
+    async function api(path, opts={}){
+      opts.headers = opts.headers || {};
+      if(state.token) opts.headers["Authorization"] = "Bearer "+state.token;
+      const res = await fetch(API+path, opts);
+      let data=null; try{ data = await res.json(); }catch(e){}
+      if(!res.ok) throw new Error((data && data.message) || "Request failed ("+res.status+")");
+      return data;
+    }
+
+    function go(view, arg){ state.view=view; state.arg=arg; render(); window.scrollTo(0,0); }
+
+    function renderNav(){
+      const nav = document.getElementById("nav");
+      if(state.token){
+        nav.innerHTML = `<span style="margin-right:10px;font-size:14px">${state.name} (${state.role})</span>
+          ${state.role==="FARMER" ? '<button onclick="go(\'farmer\')">My Cows</button>' : ''}
+          <button onclick="go('browse')">Browse</button>
+          <button class="primary" onclick="logout()">Logout</button>`;
+      } else {
+        nav.innerHTML = `<button onclick="go('browse')">Browse</button>
+          <button onclick="go('login')">Login</button>
+          <button class="primary" onclick="go('register')">Register</button>`;
+      }
+    }
+
+    async function render(){
+      renderNav();
+      const m = document.getElementById("main");
+      m.innerHTML = "<p class='small'>Loading…</p>";
+      try{
+        if(state.view==="browse") return renderBrowse();
+        if(state.view==="detail") return renderDetail(state.arg);
+        if(state.view==="login") return renderLogin();
+        if(state.view==="register") return renderRegister();
+        if(state.view==="farmer") return renderFarmer();
+        if(state.view==="newCow") return renderNewCow();
+      }catch(e){ m.innerHTML = `<div class="msg err">${e.message}</div>`; }
+    }
+
+    // ---------- BROWSE ----------
+    async function renderBrowse(){
+      const m = document.getElementById("main");
+      const f = state.filters || {};
+      m.innerHTML = `
+        <h2>Available Jersey Cows</h2>
+        <div class="bar">
+          <input id="fCity" placeholder="City" value="${f.city||''}">
+          <input id="fMin" placeholder="Min price" type="number" value="${f.minPrice||''}">
+          <input id="fMax" placeholder="Max price" type="number" value="${f.maxPrice||''}">
+          <button class="btn outline" onclick="applyFilters()">Filter</button>
+        </div>
+        <div id="grid" class="grid"><p class="small">Loading cows…</p></div>`;
+      try{
+        const q = new URLSearchParams(f).toString();
+        const data = await api("/api/cows"+(q?"?"+q:""));
+        const grid = document.getElementById("grid");
+        if(!data.content || data.content.length===0){ grid.innerHTML = '<p class="empty">No cows found.</p>'; return; }
+        grid.innerHTML = data.content.map(c=>`
+          <div class="card" onclick="go('detail', ${c.id})">
+            <img src="${c.primaryImageUrl?API+c.primaryImageUrl:''}" onerror="this.style.opacity=0">
+            <div class="body">
+              <h3>${c.name} <span class="badge">${c.breed}</span></h3>
+              <div class="price">₹${Number(c.price).toLocaleString('en-IN')}</div>
+              <div class="meta">${c.age} yrs · ${c.location}</div>
+            </div>
+          </div>`).join("");
+      }catch(e){ document.getElementById("grid").innerHTML = `<div class="msg err">${e.message}</div>`; }
+    }
+    function applyFilters(){
+      state.filters = { city: fCity.value||undefined, minPrice: fMin.value||undefined, maxPrice: fMax.value||undefined };
+      Object.keys(state.filters).forEach(k=>state.filters[k]===undefined&&delete state.filters[k]);
+      renderBrowse();
+    }
+
+    // ---------- DETAIL ----------
+    async function renderDetail(id){
+      const m = document.getElementById("main");
+      const c = await api("/api/cows/"+id);
+      state.selectedCow = c; state.selectedImg = 0;
+      m.innerHTML = `
+        <button class="btn outline" onclick="go('browse')">&larr; Back</button>
+        <div class="detail" style="margin-top:14px">
+          <img id="mainImg" src="${c.images&&c.images[0]?API+c.images[0].imageUrl:''}">
+          <div class="thumbs">${(c.images||[]).map((im,i)=>`<img src="${API+im.imageUrl}" class="${i===0?'on':''}" onclick="swapImg(${i})">`).join("")}</div>
+          <h2>${c.name} <span class="badge">${c.breed}</span></h2>
+          <div class="price" style="font-size:22px">₹${Number(c.price).toLocaleString('en-IN')}</div>
+          <table>
+            <tr><th>Age</th><td>${c.age} years</td></tr>
+            <tr><th>Gender</th><td>${c.gender}</td></tr>
+            <tr><th>Milk/day</th><td>${c.milkPerDay||'-'} L</td></tr>
+            <tr><th>Location</th><td>${c.location}</td></tr>
+            <tr><th>Health</th><td>${c.healthStatus||'-'}</td></tr>
+          </table>
+          <p>${c.description||''}</p>
+          <h3>Farmer: ${c.farmerName}</h3>
+          <div class="contact">
+            <a class="call" href="${c.callLink}">📞 Call ${c.farmerMobile}</a>
+            ${c.whatsappLink?`<a class="wa" href="${c.whatsappLink}" target="_blank">WhatsApp</a>`:''}
+          </div>
+          <div id="cmsg" style="margin-top:14px"></div>
+          ${state.token ? `<button class="btn clay" style="margin-top:10px" onclick="sendContact(${c.id})">Send message to farmer</button>` : `<p class="small" style="margin-top:10px">Login to send a message to this farmer.</p>`}
+        </div>`;
+    }
+    function swapImg(i){ state.selectedImg=i; const c=state.selectedCow; document.getElementById("mainImg").src=API+c.images[i].imageUrl;
+      document.querySelectorAll(".thumbs img").forEach((el,idx)=>el.classList.toggle("on",idx===i)); }
+    async function sendContact(cowId){
+      try{
+        await api("/api/contact-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cowId, message:"Hi, I'm interested in this cow. Is it still available?"})});
+        document.getElementById("cmsg").innerHTML = '<div class="msg ok">Message sent to the farmer.</div>';
+      }catch(e){ document.getElementById("cmsg").innerHTML = `<div class="msg err">${e.message}</div>`; }
+    }
+
+    // ---------- LOGIN / REGISTER ----------
+    function renderLogin(){
+      document.getElementById("main").innerHTML = `
+        <h2>Login</h2>
+        <div id="lmsg"></div>
+        <form onsubmit="return doLogin(event)">
+          <label>Email</label><input id="lEmail" type="email" required>
+          <label>Password</label><input id="lPass" type="password" required>
+          <button class="btn">Login</button>
+        </form>`;
+    }
+    async function doLogin(e){
+      e.preventDefault();
+      try{
+        const data = await api("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:lEmail.value,password:lPass.value})});
+        saveAuth(data.accessToken, data.role, data.name);
+        go(data.role==="FARMER"?"farmer":"browse");
+      }catch(err){ document.getElementById("lmsg").innerHTML = `<div class="msg err">${err.message}</div>`; }
+      return false;
+    }
+    function renderRegister(){
+      document.getElementById("main").innerHTML = `
+        <h2>Register</h2>
+        <div id="rmsg"></div>
+        <form class="wide" onsubmit="return doRegister(event)">
+          <div class="row2"><div><label>Full name</label><input id="rName" required></div>
+          <div><label>Role</label><select id="rRole"><option value="FARMER">Farmer</option><option value="BUYER">Buyer</option></select></div></div>
+          <label>Email</label><input id="rEmail" type="email" required>
+          <label>Password</label><input id="rPass" type="password" required minlength="6">
+          <div class="row2"><div><label>Mobile</label><input id="rMobile" required></div>
+          <div><label>WhatsApp (optional)</label><input id="rWhatsapp"></div></div>
+          <div class="row2"><div><label>City</label><input id="rCity"></div><div><label>State</label><input id="rState"></div></div>
+          <button class="btn clay">Create account</button>
+        </form>`;
+    }
+    async function doRegister(e){
+      e.preventDefault();
+      try{
+        await api("/api/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+          fullName:rName.value, email:rEmail.value, password:rPass.value, mobileNumber:rMobile.value,
+          whatsappNumber:rWhatsapp.value, city:rCity.value, state:rState.value, role:rRole.value
+        })});
+        document.getElementById("rmsg").innerHTML = '<div class="msg ok">Account created. You can log in now.</div>';
+        setTimeout(()=>go("login"), 900);
+      }catch(err){ document.getElementById("rmsg").innerHTML = `<div class="msg err">${err.message}</div>`; }
+      return false;
+    }
+
+    // ---------- FARMER DASHBOARD ----------
+    async function renderFarmer(){
+      const m = document.getElementById("main");
+      m.innerHTML = `<h2>My Cow Listings</h2><button class="btn clay" onclick="go('newCow')">+ Add New Cow</button><div id="mgrid" class="grid" style="margin-top:16px"></div>`;
+      const cows = await api("/api/farmers/cows");
+      state.myCows = cows;
+      const g = document.getElementById("mgrid");
+      if(!cows.length){ g.innerHTML = '<p class="empty">No listings yet — add your first cow.</p>'; return; }
+      g.innerHTML = cows.map(c=>`
+        <div class="card">
+          <img src="${c.primaryImageUrl?API+c.primaryImageUrl:''}" onerror="this.style.opacity=0">
+          <div class="body">
+            <h3>${c.name} <span class="pill ${c.status==='SOLD'?'sold':''}">${c.status}</span></h3>
+            <div class="price">₹${Number(c.price).toLocaleString('en-IN')}</div>
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              ${c.status==='AVAILABLE'?`<button class="btn outline" style="padding:5px 10px;font-size:12px" onclick="markSold(${c.id})">Mark Sold</button>`:''}
+              <button class="btn outline" style="padding:5px 10px;font-size:12px" onclick="deleteCow(${c.id})">Delete</button>
+            </div>
+          </div>
+        </div>`).join("");
+    }
+    async function markSold(id){ try{ await api(`/api/farmers/cows/${id}/sold`,{method:"PUT"}); renderFarmer(); }catch(e){ alert(e.message);} }
+    async function deleteCow(id){ if(!confirm("Delete this listing?"))return; try{ await api(`/api/farmers/cows/${id}`,{method:"DELETE"}); renderFarmer(); }catch(e){ alert(e.message);} }
+
+    function renderNewCow(){
+      document.getElementById("main").innerHTML = `
+        <button class="btn outline" onclick="go('farmer')">&larr; Back</button>
+        <h2>List a New Cow</h2>
+        <div id="nmsg"></div>
+        <form class="wide" onsubmit="return submitNewCow(event)">
+          <div class="row2"><div><label>Name</label><input id="cName" required></div>
+          <div><label>Breed</label><select id="cBreed"><option value="JERSEY">Jersey</option></select></div></div>
+          <div class="row2"><div><label>Age (years)</label><input id="cAge" type="number" required></div>
+          <div><label>Gender</label><select id="cGender"><option>FEMALE</option><option>MALE</option></select></div></div>
+          <div class="row2"><div><label>Price (₹)</label><input id="cPrice" type="number" required></div>
+          <div><label>Location / City</label><input id="cLocation" required></div></div>
+          <div class="row2"><div><label>Milk per day (L)</label><input id="cMilk" type="number"></div>
+          <div><label>Health status</label><input id="cHealth"></div></div>
+          <label>Description</label><textarea id="cDesc" rows="3"></textarea>
+          <label>Images (minimum 3)</label><input id="cImages" type="file" accept="image/*" multiple required>
+          <button class="btn clay">Create Listing</button>
+        </form>`;
+    }
+    async function submitNewCow(e){
+      e.preventDefault();
+      const files = cImages.files;
+      if(files.length < 3){ document.getElementById("nmsg").innerHTML = '<div class="msg err">Please select at least 3 images.</div>'; return false; }
+      const cow = { name:cName.value, breed:cBreed.value, age:Number(cAge.value), gender:cGender.value, price:Number(cPrice.value),
+        location:cLocation.value, milkPerDay:cMilk.value?Number(cMilk.value):undefined, healthStatus:cHealth.value, description:cDesc.value };
+      const fd = new FormData();
+      fd.append("cow", new Blob([JSON.stringify(cow)], {type:"application/json"}));
+      for(const f of files) fd.append("images", f);
+      try{
+        await api("/api/farmers/cows",{method:"POST", body:fd});
+        go("farmer");
+      }catch(err){ document.getElementById("nmsg").innerHTML = `<div class="msg err">${err.message}</div>`; }
+      return false;
+    }
+
+    render();
+</script>
+</body>
+</html>

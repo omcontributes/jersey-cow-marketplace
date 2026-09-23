@@ -52,6 +52,7 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/cows/**").permitAll()
                         .requestMatchers("/images/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/*.css", "/*.js").permitAll()
                         .requestMatchers("/api/farmers/**").hasRole("FARMER")
                         .requestMatchers("/api/contact-requests").authenticated()
                         .anyRequest().authenticated()
