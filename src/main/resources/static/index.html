@@ -6,8 +6,8 @@
     <title>Jersey Cow Marketplace</title>
     <style>
         :root{
-          --moss:#3f5b3f; --moss-dark:#2b402b; --tan:#e8dfc8; --paper:#faf7ef;
-          --ink:#26221a; --clay:#a8622f; --line:#d8cfb2;
+          --moss:#3f5b3f; --moss-dark:#2b402b; --tan:#e8dfc8; --paper:#eef3e7;
+          --ink:#26221a; --clay:#a8622f; --line:#c9d6bd;
         }
         *{box-sizing:border-box}
         body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
@@ -79,7 +79,13 @@
       if(state.token) opts.headers["Authorization"] = "Bearer "+state.token;
       const res = await fetch(API+path, opts);
       let data=null; try{ data = await res.json(); }catch(e){}
-      if(!res.ok) throw new Error((data && data.message) || "Request failed ("+res.status+")");
+      if(!res.ok){
+        let msg = (data && data.message) || "Request failed ("+res.status+")";
+        if(data && data.fieldErrors){
+          msg += ": " + Object.entries(data.fieldErrors).map(([k,v])=>`${k} - ${v}`).join(", ");
+        }
+        throw new Error(msg);
+      }
       return data;
     }
 
